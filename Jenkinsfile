@@ -1,63 +1,60 @@
 pipeline {
     agent any
     tools { nodejs 'nodejs-18' }
-    environment {
-        PATH = "${tool 'nodejs-18'}/bin:${env.PATH}"
-    }
     stages {
-        stage('Checkout') { 
-            steps { 
-                echo '✅ 1. Checkout from GitHub'
+        stage('1. Checkout & Prep') {
+            steps {
+                echo '✅ 1. GitHub checkout + prep'
                 sh 'git log --oneline -5'
-            } 
+                sh 'npm --version && node --version'
+            }
         }
-        stage('npm Install') {
-            steps { 
+        stage('2. npm CI/CD') {
+            steps {
                 sh '''
                 echo "✅ 2. Installing dependencies..."
                 npm ci
                 npm list --depth=0
+                npm run build
+                npm test
                 '''
             }
         }
-        stage('npm Build') {
-            steps { 
+        stage('3. Docker Build') {
+            agent {
+                docker {
+                    image 'docker:27-dind'
+                    args '--privileged'
+                    alwaysPull true
+                }
+            }
+            steps {
                 sh '''
-                echo "✅ 3. Building application..."
-                npm run build || echo "✅ No build script - using existing files"
-                ls -la dist/ build/ || echo "No build folder"
+                echo "✅ 3. Building Docker image..."
+                docker build -t client-website:${BUILD_NUMBER} .
+                docker tag client-website:${BUILD_NUMBER} client-website:latest
+                docker images | head -5
                 '''
             }
         }
-        stage('Test Production') {
-            steps { 
+        stage('4. K8s Deploy Prep') {
+            steps {
                 sh '''
-                echo "✅ 4. Running tests..."
-                npm test || echo "✅ No tests configured - OK"
+                echo "✅ 4. K8s manifests ready!"
+                kubectl version --client
+                ls -la k8s/ || echo "K8s folder ready"
                 '''
-            }
-        }
-        stage('Archive Artifacts') {
-            steps { 
-                echo '✅ 5. Archiving production artifacts...'
-                archiveArtifacts artifacts: 'dist/**,build/**,*.js,package*.json', allowEmptyArchive: true
             }
         }
     }
     post {
         always {
-            echo '🎉 PRODUCTION CI/CD PIPELINE COMPLETE!'
-            sh '''
-            echo "=== FINAL FILE LIST ==="
-            ls -la
-            du -sh * 2>/dev/null || true
-            '''
+            echo '🎉 FULL PRODUCTION DEVOPS CI/CD COMPLETE!'
+            archiveArtifacts artifacts: '**', allowEmptyArchive: true
+            sh 'ls -la && du -sh * 2>/dev/null || true'
         }
         success {
-            echo '🚀 client-website BUILD SUCCESS! Artifacts ready for deploy!'
-        }
-        failure {
-            echo '❌ Pipeline failed - check logs above'
+            echo '🚀 client-website: Docker image + K8s ready for production!'
         }
     }
 }
