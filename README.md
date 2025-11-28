@@ -1,1 +1,3 @@
-# client-website
+# Client Website
+npm install
+npm start
