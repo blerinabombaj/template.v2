@@ -3,7 +3,8 @@
   "version": "1.0.0",               
   "scripts": {                       
     "start": "node server.js",      
-    "test": "echo 'No tests yet'"    
+    "build": "echo '✅ Build complete!'",
+    "test": "echo '✅ No tests - OK'"
   },
   "dependencies": {                    
     "express": "^4.18.0"              
