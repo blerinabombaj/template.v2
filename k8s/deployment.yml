@@ -1,0 +1,19 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: client-website
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: client-website
+  template:
+    metadata:
+      labels:
+        app: client-website
+    spec:
+      containers:
+      - name: client-website
+        image: digdigdigdig/client-website:1.0
+        ports:
+        - containerPort: 3000
