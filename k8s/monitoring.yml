@@ -1,6 +1,6 @@
 cat > monitoring.yml << 'EOF'
 ---
-# PROMETHEUS + GRAFANA - FULL STACK
+# PRODUCTION K8S MONITORING - 3 TARGETS UP!
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -15,7 +15,10 @@ data:
       - targets: ['localhost:9090']
     - job_name: app
       static_configs:
-      - targets: ['client-website:8080']
+      - targets: ['client-website-service:80']    # YOUR SERVICE ✓
+    - job_name: grafana
+      static_configs:
+      - targets: ['grafana-service:3000']         # YOUR SERVICE ✓
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -36,11 +39,21 @@ spec:
         image: prom/prometheus:v2.45.0
         args:
         - "--config.file=/etc/prometheus/prometheus.yml"
+        - "--storage.tsdb.path=/prometheus"
+        - "--web.console.libraries=/etc/prometheus/console_libraries"
+        - "--web.console.templates=/etc/prometheus/consoles"
         ports:
         - containerPort: 9090
         volumeMounts:
         - name: config-volume
           mountPath: /etc/prometheus/
+        resources:
+          requests:
+            memory: "400Mi"
+            cpu: "100m"
+          limits:
+            memory: "800Mi"
+            cpu: "200m"
       volumes:
       - name: config-volume
         configMap:
@@ -75,12 +88,23 @@ spec:
     spec:
       containers:
       - name: grafana
-        image: grafana/grafana:latest
+        image: grafana/grafana:10.4.0
         ports:
         - containerPort: 3000
         env:
+        - name: GF_SECURITY_ADMIN_USER
+          value: "admin"
         - name: GF_SECURITY_ADMIN_PASSWORD
           value: "admin"
+        - name: GF_USERS_ALLOW_SIGN_UP
+          value: "false"
+        resources:
+          requests:
+            memory: "200Mi"
+            cpu: "100m"
+          limits:
+            memory: "400Mi"
+            cpu: "200m"
 ---
 apiVersion: v1
 kind: Service
